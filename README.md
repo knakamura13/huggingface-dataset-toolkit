@@ -27,42 +27,13 @@ pip install pandas scikit-learn huggingface datasets
 
 This function applies one-hot encoding to specified columns of a DataFrame and drops the original columns.
 
-**Parameters:**
-- `df`: DataFrame to which one-hot encoding is applied
-- `column_names`: List of column names to be one-hot encoded
-
-**Returns:**
-- DataFrame with original columns dropped and one-hot encoded columns added
-
 ### download_dataset(name, variant=None, split=Split.ALL)
 
 Downloads a dataset from Huggingface and converts it to a DataFrame.
 
-**Parameters:**
-- `name`: Name of the dataset
-- `variant`: Optional, variant of the dataset
-- `split`: Optional, the split of data you want (default is all data)
-
-**Returns:**
-- The dataset represented as a DataFrame
-
 ### download_clean_and_save_dataset(...)
 
 Downloads a dataset, optionally cleans it, and saves it as CSV files.
-
-**Parameters:**
-- `name`: Name of the dataset to download. 
-  - Example: 'hitorilabs/iris' is the "name" of this Iris dataset https://huggingface.co/datasets/hitorilabs/iris
-- `variant`: Variant of the dataset to load (applies to some Huggingface datasets)
-- `nickname`: Custom name for saving the dataset
-- `split`: Which split of the dataset to load. Default is all data (applies to some Huggingface datasets)
-- `cols_to_drop`: List of column names to drop
-- `cols_to_encode`: List of column names to one-hot encode
-- `data_dir`: Directory to save the dataset. Default is "data"
-- `as_int`: Boolean to indicate if DataFrame should be converted to int
-
-**Returns:**
-- Cleaned and processed DataFrame
 
 ## Usage
 
@@ -78,9 +49,8 @@ Downloads a dataset, optionally cleans it, and saves it as CSV files.
 
 Feel free to open an issue or submit a pull request if you have suggestions for improvement. 
 
-Some examples for improvements that would be nice to have:
+Some examples of improvements that would be nice to have:
 - The ability to load datasets from [UCI's ML Repository](https://archive.ics.uci.edu/datasets) or [Kaggle](https://www.kaggle.com/datasets/).
-- Automatic one-hot encoding for categorical data.
 - Automatic conversion to `int` when all existing `float`s have no decimal values.
 - The option to apply stratified sampling to reduce a dataset's size without altering its distribution of target values.
 - The option to normalize or standardize numerical features.
