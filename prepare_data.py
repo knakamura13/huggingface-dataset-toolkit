@@ -3,25 +3,38 @@ import string
 import pandas as pd
 from pathlib import Path
 from datasets import load_dataset, Split
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
 
 
-def one_hot_encode_columns(df, column_names):
+def encode_columns(df, column_names, use_one_hot_encoding=True):
     """
-    Apply one-hot encoding to a list of column names on a DataFrame, dropping the original columns.
+    Apply encoding to a list of column names on a DataFrame, dropping the original columns.
 
     :param df: Pandas DataFrame to one-hot encode
-    :param column_names: List of column names to be one-hot encoded
-    :return: Pandas DataFrame with original columns dropped and one-hot encoded columns added
+    :param column_names: List of column names to be encoded
+    :param use_one_hot_encoding: Boolean to use one-hot encoding as opposed to ordinal
+    :return: Pandas DataFrame with original columns dropped and encoded columns added
     """
-    for name in column_names:
-        enc = OneHotEncoder(handle_unknown="ignore")
-        enc.fit(df[[name]])
-        new_cols = enc.transform(df[[name]]).toarray()
-        new_col_names = [f"{name}_{n}".lower().replace("group ", "") for n in enc.categories_[0].tolist()]
-        new_cols_df = pd.DataFrame(new_cols, columns=new_col_names, dtype=int)
-        df = pd.concat([df, new_cols_df], axis=1)
-    df.drop(columns=column_names, inplace=True)
+    if use_one_hot_encoding:
+        for name in column_names:
+            enc = OneHotEncoder(handle_unknown="ignore")
+            new_cols = enc.fit_transform(df[[name]]).toarray()
+            new_col_names = [
+                f"{name}_{n}".lower().replace("group ", "")
+                for n in enc.categories_[0].tolist()
+            ]
+            new_cols_df = pd.DataFrame(new_cols, columns=new_col_names, dtype=int)
+            df = pd.concat([new_cols_df, df], axis=1)
+        df.drop(columns=column_names, inplace=True)
+    else:
+        # Initialize the OrdinalEncoder
+        enc = OrdinalEncoder()
+
+        # Perform the encoding and replace the original columns
+        df_encoded = df.copy()
+        df_encoded[column_names] = enc.fit_transform(df[column_names])
+        df = df_encoded
+
     return df
 
 
@@ -34,11 +47,21 @@ def download_dataset(name, variant=None, split=Split.ALL):
     :param split: Which split of the dataset to load. Default is all data
     :return: Pandas DataFrame representation of the dataset
     """
-    return load_dataset(name, variant, split=split, download_mode="reuse_cache_if_exists").to_pandas()
+    return load_dataset(
+        name, variant, split=split, download_mode="reuse_cache_if_exists"
+    ).to_pandas()
 
 
 def download_clean_and_save_dataset(
-    name, variant=None, nickname=None, split=Split.ALL, cols_to_drop=None, cols_to_encode=None, data_dir="data", as_int=False
+    name,
+    variant=None,
+    nickname=None,
+    split=Split.ALL,
+    cols_to_drop=None,
+    cols_to_encode=None,
+    use_one_hot_encoding=True,
+    data_dir="data",
+    as_int=False,
 ) -> pd.DataFrame:
     """
     Download a dataset, optionally clean it, and save it as a CSV file.
@@ -48,7 +71,8 @@ def download_clean_and_save_dataset(
     :param nickname: Optional, custom name for saving the dataset
     :param split: Which split of the dataset to load. Default is all data
     :param cols_to_drop: List of column names to drop
-    :param cols_to_encode: List of column names to one-hot encode
+    :param cols_to_encode: List of column names to encode
+    :param use_one_hot_encoding: Boolean to use one-hot encoding as opposed to ordinal
     :param data_dir: Directory to save the datasets. Default is "data"
     :param as_int: Boolean to indicate if DataFrame should be converted to int
     :return: Cleaned and processed Pandas DataFrame
@@ -75,7 +99,9 @@ def download_clean_and_save_dataset(
     # One-hot encode specific columns
     if cols_to_encode:
         try:
-            df = one_hot_encode_columns(df, cols_to_encode)
+            df = encode_columns(
+                df, cols_to_encode, use_one_hot_encoding=use_one_hot_encoding
+            )
         except Exception as e:
             print(e)
 
@@ -87,14 +113,14 @@ def download_clean_and_save_dataset(
     df.rename(columns={df.columns[-1]: "target"}, inplace=True)
 
     # Replace booleans with ints
-    df.replace({True: 1, "True": 1, False: 0, "False": 0}, inplace=True)
+    df.replace({"True": 1, "False": 0, True: 1, False: 0}, inplace=True)
 
     # Remove extra punctuation and white spaces
     df.replace("[{}]".format(string.punctuation), "", regex=True, inplace=True)
     df.replace("  ", " ", regex=True, inplace=True)
 
     # Save the cleaned DataFrame
-    df.to_csv(os.path.join(data_dir, f"{nickname}.csv"), index=False, quoting=3)
+    df.to_csv(os.path.join(data_dir, f"{nickname}.csv"), index=False)
 
     return df
 
