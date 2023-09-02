@@ -23,9 +23,9 @@ pip install pandas scikit-learn huggingface datasets
 
 ## Functions
 
-### one_hot_encode_columns(df, column_names)
+### encode_columns(df, column_names, use_one_hot_encoding=True)
 
-This function applies one-hot encoding to specified columns of a DataFrame and drops the original columns.
+This function applies one-hot or ordinal encoding to specified columns of a DataFrame.
 
 ### download_dataset(name, variant=None, split=Split.ALL)
 
