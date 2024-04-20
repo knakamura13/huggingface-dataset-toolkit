@@ -1,0 +1,48 @@
+# Operating system-specific files
+.DS_Store
+
+# Temporary files
+*~
+~*
+.swp
+
+# Editor configuration files
+.idea/
+.vscode/
+
+# Python-specific files
+__pycache__/
+
+# Build artifacts
+build/
+dist/
+
+# Logs
+*.log
+*.tsbuildinfo
+.pnpm-debug.log*
+logs
+node_modules/
+npm-debug.log
+npm-debug.log*
+package-lock.json
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.development.local
+.env.local
+.env.production.local
+.env.test.local
+.env/
+
+# SvelteKit
+.svelte-kit
+
+# Virtual environments
+venv/
+
+# npm
+.npm
+
