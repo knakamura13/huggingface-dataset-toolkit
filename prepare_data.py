@@ -6,6 +6,7 @@ from datasets import load_dataset, Split
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler, MinMaxScaler
+from imblearn.over_sampling import SMOTE
 
 
 def encode_columns(df, column_names, use_one_hot_encoding=True):
@@ -134,12 +135,33 @@ def scale_data(df, columns=None, scale_type='standardize'):
     return df
 
 
+def auto_balance_dataset(df, target_column):
+    """
+    Balance classes in the DataFrame using the SMOTE algorithm.
+
+    Parameters:
+        df (pandas.DataFrame): DataFrame to balance.
+        target_column (str): Name of the target column.
+
+    Returns:
+        pandas.DataFrame: DataFrame with balanced classes.
+    """
+    print("Balancing classes using SMOTE...")
+    smote = SMOTE()
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+    X_res, y_res = smote.fit_resample(X, y)
+    balanced_df = pd.concat([X_res, y_res], axis=1)
+    print("Classes balanced.")
+    return balanced_df
+
+
 def download_clean_and_save_dataset(name, source='huggingface', variant=None, split=Split.ALL,
                                     data_dir="data", nickname=None, cols_to_drop=None, cols_to_encode=None,
                                     use_one_hot_encoding=True, missing_data_strategy="drop",
                                     missing_data_fill_value=None, scale_type=None, scale_columns=None,
                                     stratify_column=None, stratify_sample_size=0.1, convert_floats_to_ints=True,
-                                    as_int=False):
+                                    as_int=False, auto_balance=False):
     """
     Download a dataset from Huggingface or UCI, clean, and save it as CSV with additional preprocessing options.
 
@@ -161,6 +183,7 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
         stratify_sample_size (float): Fraction of the dataset to retain in sampling.
         convert_floats_to_ints (bool): Whether to automatically convert float columns to integers where possible.
         as_int (bool): Whether to convert all columns to integer type after preprocessing.
+        auto_balance (bool): Whether to balance all classes using SMOTE.
 
     Returns:
         pandas.DataFrame: The processed dataset.
@@ -170,9 +193,9 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     nickname = nickname.lower().replace("-dataset", "").replace("-", "_")
 
     # Download the dataset from the specified source
-    if source == 'huggingface':
+    if source.lower() == 'huggingface':
         df = download_huggingface_dataset(name, variant, split)
-    elif source == 'uci':
+    elif source.lower() == 'uci':
         print(f"\nDownloading dataset {name} from UCI...")
         uci_dataset = fetch_ucirepo(id=int(name))
         df = pd.concat([uci_dataset.data.features, uci_dataset.data.targets], axis=1)
@@ -192,7 +215,9 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     if cols_to_drop:
         df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
         if df.empty:
-            raise ValueError("All columns have been dropped; no data remains for processing.")
+            raise ValueError("
+
+All columns have been dropped; no data remains for processing.")
 
     # Encode specified columns
     if cols_to_encode:
@@ -219,6 +244,11 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     if as_int:
         df = df.astype(int)
 
+    # Balance classes using SMOTE if auto_balance is True
+    if auto_balance:
+        target_column = stratify_column if stratify_column else df.columns[-1]
+        df = auto_balance_dataset(df, target_column)
+
     # Clean and save the processed DataFrame
     df.to_csv(os.path.join(data_dir, f"{nickname}.csv"), index=False)
 
@@ -231,8 +261,8 @@ def main():
     iris_dataset = download_clean_and_save_dataset("hitorilabs/iris")
     print(iris_dataset.head())
 
-    # Example usage: loading the "Iris" dataset from UCI ML Repository
-    iris_dataset = download_clean_and_save_dataset("53", source='uci')
+    # Example usage: loading the "Iris" dataset from UCI ML Repository with auto-balancing enabled
+    iris_dataset = download_clean_and_save_dataset("53", source='uci', auto_balance=True)
     print(iris_dataset.head())
 
 

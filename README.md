@@ -1,13 +1,14 @@
-# Huggingface Dataset Toolkit
+# Huggingface + UCI Dataset Toolkit
 
 ## Overview
 
 This repository contains a Python script that automates the process of downloading, cleaning, and saving datasets from multiple sources including Huggingface and the UCI Machine Learning Repository. 
-The toolkit now supports various data preprocessing functionalities such as encoding, normalization, standardization, and handling missing data, making it suitable for preparing datasets for machine learning models.
 
-Browse Huggingface datasets here: https://huggingface.co/datasets
+The toolkit now supports various data preprocessing functionalities such as encoding, normalization, standardization, handling missing data, and automatic class balancing.
 
-Browse UCI datasets here: https://archive.ics.uci.edu/datasets
+- Browse Huggingface datasets here: [Huggingface Datasets](https://huggingface.co/datasets)
+
+- Browse UCI datasets here: [UCI Datasets](https://archive.ics.uci.edu/datasets)
 
 ## Features
 
@@ -17,6 +18,7 @@ Browse UCI datasets here: https://archive.ics.uci.edu/datasets
 - **Missing Data Handling**: Provides strategies such as drop, fill, and imputation to manage missing values.
 - **Data Transformation**: Automatic conversion of float columns to integers where possible.
 - **Stratified Sampling**: Reduce dataset size while maintaining the distribution of target variables.
+- **Class Balancing**: Automatically balance classes using the SMOTE algorithm.
 - **Informative Logging**: Print statements have been added to inform the user about the progress and status of data processing.
 
 ## Installation
@@ -39,7 +41,8 @@ dataset = download_clean_and_save_dataset(
     name="hitorilabs/iris",
     source='huggingface',
     scale_type='normalize',
-    missing_data_strategy='impute'
+    missing_data_strategy='impute',
+    auto_balance=True
 )
 
 # Download and preprocess dataset from UCI
@@ -48,13 +51,14 @@ uci_dataset = download_clean_and_save_dataset(
     source='uci',
     scale_type='standardize',
     missing_data_strategy='fill',
-    missing_data_fill_value=0
+    missing_data_fill_value=0,
+    auto_balance=True
 )
 ```
 
 ## Contributions
 
-Feel free to contribute to this project by submitting pull requests or suggesting new features or enhancements through the issues tab.
+Feel free to contribute to this project by submitting pull requests or suggesting new enhancements through the issues tab.
 
 ## License
 
