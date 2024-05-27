@@ -2,4 +2,4 @@ pandas
 datasets
 scikit-learn
 ucimlrepo
-imbalanced-learn
+pytest
