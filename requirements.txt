@@ -1,5 +1,5 @@
-pandas
-datasets
-scikit-learn
-ucimlrepo
 pytest
+pandas
+scikit-learn
+datasets
+ucimlrepo
