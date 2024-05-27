@@ -215,9 +215,7 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     if cols_to_drop:
         df.drop(columns=cols_to_drop, inplace=True, errors='ignore')
         if df.empty:
-            raise ValueError("
-
-All columns have been dropped; no data remains for processing.")
+            raise ValueError("All columns have been dropped; no data remains for processing.")
 
     # Encode specified columns
     if cols_to_encode:
