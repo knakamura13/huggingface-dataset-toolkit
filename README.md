@@ -4,7 +4,7 @@
 
 This repository contains a Python script that automates the process of downloading, cleaning, and saving datasets from multiple sources including Huggingface and the UCI Machine Learning Repository. 
 
-The toolkit now supports various data preprocessing functionalities such as encoding, normalization, standardization, handling missing data, and automatic class balancing.
+The toolkit supports various data preprocessing functionalities such as encoding, normalization, standardization, handling missing data, and automatic class balancing.
 
 - Browse Huggingface datasets here: [Huggingface Datasets](https://huggingface.co/datasets)
 
@@ -18,8 +18,7 @@ The toolkit now supports various data preprocessing functionalities such as enco
 - **Missing Data Handling**: Provides strategies such as drop, fill, and imputation to manage missing values.
 - **Data Transformation**: Automatic conversion of float columns to integers where possible.
 - **Stratified Sampling**: Reduce dataset size while maintaining the distribution of target variables.
-- **Class Balancing**: Automatically balance classes using the SMOTE algorithm.
-- **Informative Logging**: Print statements have been added to inform the user about the progress and status of data processing.
+- **Class Balancing**: Automatically balance classes using random oversampling.
 
 ## Installation
 
@@ -40,19 +39,18 @@ from prepare_data import download_clean_and_save_dataset
 dataset = download_clean_and_save_dataset(
     name="hitorilabs/iris",
     source='huggingface',
-    scale_type='normalize',
-    missing_data_strategy='impute',
-    auto_balance=True
+    scale_type='normalize'
 )
 
 # Download and preprocess dataset from UCI
 uci_dataset = download_clean_and_save_dataset(
-    name="53",  # Dataset ID for UCI
+    name="53",  # ID for the Iris dataset
     source='uci',
     scale_type='standardize',
     missing_data_strategy='fill',
     missing_data_fill_value=0,
-    auto_balance=True
+    auto_balance=True,
+    verbose=True
 )
 ```
 

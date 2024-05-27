@@ -46,3 +46,4 @@ venv/
 # npm
 .npm
 
+data/
