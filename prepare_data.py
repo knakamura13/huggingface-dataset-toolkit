@@ -39,6 +39,14 @@ def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
     return df
 
 
+def download_dataset(name, source, split, variant, verbose):
+    if source.lower() == 'huggingface':
+        return download_huggingface_dataset(name, variant, split, verbose)
+    elif source.lower() == 'uci':
+        return download_uci_dataset(int(name), verbose)
+    raise ValueError(f"Unsupported source specified: {source}")
+
+
 def download_huggingface_dataset(name, variant=None, split=Split.ALL, verbose=False):
     """
     Downloads a dataset from Huggingface and returns it as a DataFrame with standardized column names.
@@ -203,6 +211,8 @@ def apply_stratified_sampling(df, stratify_column, stratify_sample_size):
     Returns:
         pd.DataFrame: The sampled DataFrame.
     """
+    if not stratify_column or not stratify_sample_size:
+        return df
     if stratify_column not in df.columns:
         raise ValueError(f"The specified stratify_column '{stratify_column}' does not exist in the DataFrame.")
     sampled_df, _ = train_test_split(df, test_size=stratify_sample_size, stratify=df[stratify_column], random_state=1)
@@ -225,6 +235,17 @@ def drop_columns(df, cols_to_drop):
         if df.empty:
             raise ValueError("All columns have been dropped; no data remains for processing.")
     return df
+
+
+def get_dataset_nickname(dataset_name: str, nickname=None):
+    """ Create a nickname for the dataset to be used in CSV filenames. """
+    if not nickname:
+        if "/" in dataset_name:
+            nickname = dataset_name.split("/")[1]
+        else:
+            nickname = dataset_name
+    nickname = nickname.lower().replace("-dataset", "").replace("-", "_")
+    return nickname
 
 
 def save_dataframe(df, file_path, verbose=False):
@@ -315,32 +336,22 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     Returns:
         pd.DataFrame: The processed DataFrame.
     """
-    nickname = nickname or name.split("/")[1] if "/" in name else name
-    nickname = nickname.lower().replace("-dataset", "").replace("-", "_")
+    nickname = get_dataset_nickname(dataset_name=name, nickname=nickname)
 
-    if source.lower() == 'huggingface':
-        df = download_huggingface_dataset(name, variant, split, verbose)
-    elif source.lower() == 'uci':
-        df = download_uci_dataset(int(name), verbose)
-    else:
-        raise ValueError(f"Unsupported source specified: {source}")
-
-    if verbose:
-        print(f"Saving original DataFrame to {os.path.join(data_dir, f'{nickname}_original.csv')}")
+    # Download the dataset and save the unmodified data to a CSV
+    df = download_dataset(name, source, split, variant, verbose)
     save_dataframe(df, os.path.join(data_dir, f"{nickname}_original.csv"), verbose)
 
+    # Process the dataset and save the processed data to a separate CSV
     df = drop_columns(df, cols_to_drop)
-
-    if stratify_column and stratify_sample_size:
-        df = apply_stratified_sampling(df, stratify_column, stratify_sample_size)
-
+    df = apply_stratified_sampling(df, stratify_column, stratify_sample_size)
     df = process_data(df, cols_to_encode, use_one_hot_encoding, missing_data_strategy, missing_data_fill_value,
                       scale_type, scale_columns, convert_floats_to_ints, as_int, auto_balance, stratify_column, verbose)
-
-    if verbose:
-        print(f"Saving processed DataFrame to {os.path.join(data_dir, f'{nickname}.csv')}")
     save_dataframe(df, os.path.join(data_dir, f"{nickname}.csv"), verbose)
 
     if verbose:
-        print(f"Dataset processing complete. Saved processed data to {data_dir}.")
+        print(f"Dataset processing complete.")
+        print(f"Original dataset saved to {os.path.join(data_dir, f'{nickname}_original.csv')}")
+        print(f"Processed dataset saved to to {os.path.join(data_dir, f'{nickname}.csv')}")
+
     return df

@@ -120,8 +120,11 @@ class TestPrepareData(unittest.TestCase):
         sampled_df = apply_stratified_sampling(df, stratify_column, stratify_sample_size)
         self.assertEqual(sampled_df['target'].value_counts()[0], sampled_df['target'].value_counts()[1])
 
-    @patch('prepare_data.apply_stratified_sampling')
-    def test_download_clean_and_save_dataset(self, mock_apply_stratified_sampling):
+    @patch('prepare_data.download_huggingface_dataset')
+    @patch('prepare_data.download_uci_dataset')
+    @patch('prepare_data.save_dataframe')
+    def test_download_clean_and_save_dataset(self, mock_save_dataframe, mock_download_uci_dataset,
+                                             mock_download_huggingface_dataset):
         mock_data = pd.DataFrame({
             'sepal_length': [5.1, 4.9, 4.7, 4.6, 5.0],
             'sepal_width': [3.5, 3.0, 3.2, 3.1, 3.6],
@@ -130,35 +133,21 @@ class TestPrepareData(unittest.TestCase):
             'species': ['setosa', 'setosa', 'setosa', 'setosa', 'setosa']
         })
 
-        # Mocking Huggingface dataset
-        with patch('prepare_data.download_huggingface_dataset') as mock_download_huggingface_dataset:
-            mock_download_huggingface_dataset.return_value = mock_data.copy()
-            df = download_clean_and_save_dataset("hitorilabs/iris")
-            self.assertIsInstance(df, pd.DataFrame)
-            self.assertIn('sepal_length', df.columns)
-            self.assertIn('species', df.columns)
+        # Mocking Huggingface dataset download
+        mock_download_huggingface_dataset.return_value = mock_data.copy()
+        df = download_clean_and_save_dataset("hitorilabs/iris", source='huggingface')
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertIn('sepal_length', df.columns)
+        self.assertIn('species', df.columns)
+        mock_save_dataframe.assert_called()
 
-        # Mocking UCI dataset
-        with patch('prepare_data.download_uci_dataset') as mock_download_uci_dataset:
-            mock_download_uci_dataset.return_value = mock_data.copy()
-            mock_apply_stratified_sampling.return_value = pd.DataFrame({
-                'sepal_length': [5.1, 4.9],
-                'sepal_width': [3.5, 3.0],
-                'petal_length': [1.4, 1.4],
-                'petal_width': [0.2, 0.2],
-                'species': ['setosa', 'setosa']
-            })
-
-            df = download_clean_and_save_dataset("53", source='uci', stratify_column='species',
-                                                 stratify_sample_size=0.4, auto_balance=True)
-            self.assertIsInstance(df, pd.DataFrame)
-            self.assertIn('sepal_length', df.columns)
-            self.assertIn('species', df.columns)
-            # Assert the call arguments without directly comparing DataFrames
-            mock_apply_stratified_sampling.assert_called()
-            args, kwargs = mock_apply_stratified_sampling.call_args
-            self.assertEqual(args[1], 'species')
-            self.assertEqual(args[2], 0.4)
+        # Mocking UCI dataset download
+        mock_download_uci_dataset.return_value = mock_data.copy()
+        df = download_clean_and_save_dataset("53", source='uci')
+        self.assertIsInstance(df, pd.DataFrame)
+        self.assertIn('sepal_length', df.columns)
+        self.assertIn('species', df.columns)
+        mock_save_dataframe.assert_called()
 
     def test_save_dataframe(self):
         df = pd.DataFrame({

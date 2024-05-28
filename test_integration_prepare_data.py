@@ -15,7 +15,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_download_uci_dataset(self):
         try:
-            df = download_uci_dataset(53)  # Assuming 53 is the ID for the Iris dataset
+            df = download_uci_dataset(53)  # 53 is the ID for the Iris dataset
             self.assertIsInstance(df, pd.DataFrame)
             self.assertGreater(len(df), 0)
             self.assertIn('sepal_length', df.columns)
