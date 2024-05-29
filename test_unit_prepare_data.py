@@ -1,10 +1,9 @@
 import unittest
-from unittest.mock import patch
 import pandas as pd
+from unittest.mock import patch
 from prepare_data import encode_columns, download_huggingface_dataset, download_uci_dataset, \
-    convert_float_columns_to_int, \
-    handle_missing_data, scale_data, auto_balance_dataset, download_clean_and_save_dataset, apply_stratified_sampling, \
-    save_dataframe, drop_columns, process_data
+    convert_float_columns_to_int, handle_missing_data, scale_data, auto_balance_dataset, \
+    download_clean_and_save_dataset, apply_stratified_sampling, save_dataframe, drop_columns, process_data
 
 
 class TestPrepareData(unittest.TestCase):
@@ -96,10 +95,18 @@ class TestPrepareData(unittest.TestCase):
     def test_scale_data(self):
         df = pd.DataFrame({
             'A': [1, 2, 3],
-            'B': [4, 5, 6]
+            'B': [4, 5, 6],
+            'C': ['a', 'b', 'c']
         })
-        result = scale_data(df, columns=['A'], scale_type='standardize')
+        # Test standardize scaling
+        result = scale_data(df, columns=['A', 'B'], scale_type='standardize')
         self.assertAlmostEqual(result['A'].mean(), 0, places=6)
+        self.assertAlmostEqual(result['B'].mean(), 0, places=6)
+
+        # Test normalize scaling
+        result = scale_data(df, columns=['A', 'B'], scale_type='normalize')
+        self.assertAlmostEqual(result['A'].min(), 0, places=6)
+        self.assertAlmostEqual(result['A'].max(), 1, places=6)
 
     def test_auto_balance_dataset(self):
         df = pd.DataFrame({

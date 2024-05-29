@@ -1,4 +1,5 @@
 import os
+import logging
 import pandas as pd
 from pathlib import Path
 from ucimlrepo import fetch_ucirepo
@@ -6,6 +7,9 @@ from datasets import load_dataset, Split
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler, MinMaxScaler
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
@@ -22,7 +26,7 @@ def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
         pd.DataFrame: The DataFrame with encoded columns.
     """
     if verbose:
-        print("Encoding columns...")
+        logger.info("Encoding columns...")
     if use_one_hot_encoding:
         for name in column_names:
             enc = OneHotEncoder(handle_unknown="ignore")
@@ -35,7 +39,7 @@ def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
         enc = OrdinalEncoder()
         df[column_names] = enc.fit_transform(df[column_names])
     if verbose:
-        print("Columns encoded successfully.")
+        logger.info("Columns encoded successfully.")
     return df
 
 
@@ -61,10 +65,10 @@ def download_huggingface_dataset(name, variant=None, split=Split.ALL, verbose=Fa
         pd.DataFrame: The downloaded dataset as a DataFrame.
     """
     if verbose:
-        print(f"\nDownloading dataset {name} from Huggingface...")
+        logger.info(f"\nDownloading dataset {name} from Huggingface...")
     df = load_dataset(name, variant, split=split, download_mode="reuse_cache_if_exists").to_pandas()
     if verbose:
-        print("Download complete.")
+        logger.info("Download complete.")
 
     df.columns = df.columns.str.lower().str.replace(' ', '_')
     return df
@@ -82,11 +86,11 @@ def download_uci_dataset(dataset_id, verbose=False):
         pd.DataFrame: The downloaded dataset as a DataFrame.
     """
     if verbose:
-        print(f"\nDownloading dataset {dataset_id} from UCI...")
+        logger.info(f"\nDownloading dataset {dataset_id} from UCI...")
     uci_dataset = fetch_ucirepo(id=dataset_id)
     df = pd.concat([uci_dataset.data.features, uci_dataset.data.targets], axis=1)
     if verbose:
-        print("Download complete.")
+        logger.info("Download complete.")
 
     df.columns = df.columns.str.lower().str.replace(' ', '_')
     return df
@@ -104,12 +108,12 @@ def convert_float_columns_to_int(df, verbose=False):
         pd.DataFrame: The DataFrame with converted columns.
     """
     if verbose:
-        print("Converting float columns to integers where possible...")
+        logger.info("Converting float columns to integers where possible...")
     for column in df.select_dtypes(include=['float', 'float64']):
         if df[column].apply(lambda x: x.is_integer()).all():
             df[column] = df[column].astype(int)
     if verbose:
-        print("Conversion complete.")
+        logger.info("Conversion complete.")
     return df
 
 
@@ -127,7 +131,7 @@ def handle_missing_data(df, strategy="drop", fill_value=None, verbose=False):
         pd.DataFrame: The DataFrame with missing data handled.
     """
     if verbose:
-        print(f"Handling missing data using strategy: {strategy}...")
+        logger.info(f"Handling missing data using strategy: {strategy}...")
     if strategy == "drop":
         df = df.dropna()
     elif strategy == "fill":
@@ -140,7 +144,7 @@ def handle_missing_data(df, strategy="drop", fill_value=None, verbose=False):
         for column in df.select_dtypes(include=['float', 'float64', 'int']):
             df[column] = imputer.fit_transform(df[[column]])
     if verbose:
-        print("Missing data handled.")
+        logger.info("Missing data handled.")
     return df
 
 
@@ -150,7 +154,7 @@ def scale_data(df, columns=None, scale_type='standardize', verbose=False):
 
     Parameters:
         df (pd.DataFrame): The DataFrame to scale.
-        columns (list): The list of columns to scale. If None, all columns are scaled.
+        columns (list): The list of columns to scale. If None, all numeric columns are scaled.
         scale_type (str): The type of scaling ('standardize' or 'normalize').
         verbose (bool): If True, print verbose output.
 
@@ -158,14 +162,20 @@ def scale_data(df, columns=None, scale_type='standardize', verbose=False):
         pd.DataFrame: The scaled DataFrame.
     """
     if verbose:
-        print(f"Scaling data using {scale_type} scaling...")
+        logger.info(f"Scaling data using {scale_type} scaling...")
+
     scaler = StandardScaler() if scale_type == 'standardize' else MinMaxScaler()
+
     if columns:
-        df[columns] = scaler.fit_transform(df[columns])
+        numeric_columns = df[columns].select_dtypes(include=['float64', 'int']).columns
     else:
-        df = pd.DataFrame(scaler.fit_transform(df), columns=df.columns, index=df.index)
+        numeric_columns = df.select_dtypes(include=['float64', 'int']).columns
+
+    df[numeric_columns] = scaler.fit_transform(df[numeric_columns])
+
     if verbose:
-        print("Data scaling complete.")
+        logger.info("Data scaling complete.")
+
     return df
 
 
@@ -182,7 +192,7 @@ def auto_balance_dataset(df, target_column, verbose=False):
         pd.DataFrame: The balanced DataFrame.
     """
     if verbose:
-        print("Balancing classes using random oversampling...")
+        logger.info("Balancing classes using random oversampling...")
     majority_class = df[target_column].value_counts().idxmax()
     minority_class = df[target_column].value_counts().idxmin()
     majority_df = df[df[target_column] == majority_class]
@@ -190,12 +200,12 @@ def auto_balance_dataset(df, target_column, verbose=False):
     n_samples_to_duplicate = len(majority_df) - len(minority_df)
     if n_samples_to_duplicate <= 0:
         if verbose:
-            print("Classes are already balanced.")
+            logger.info("Classes are already balanced.")
         return df
     minority_upsampled = minority_df.sample(n=n_samples_to_duplicate, replace=True, random_state=1)
     balanced_df = pd.concat([majority_df, minority_df, minority_upsampled])
     if verbose:
-        print("Classes balanced.")
+        logger.info("Classes balanced.")
     return balanced_df.sample(frac=1, random_state=1).reset_index(drop=True)
 
 
@@ -260,7 +270,7 @@ def save_dataframe(df, file_path, verbose=False):
     Path(file_path).parent.mkdir(exist_ok=True)
     df.to_csv(file_path, index=False)
     if verbose:
-        print(f"DataFrame saved to {file_path}")
+        logger.info(f"DataFrame saved to {file_path}")
 
 
 def process_data(df, cols_to_encode=None, use_one_hot_encoding=True, missing_data_strategy="drop",
@@ -350,8 +360,8 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     save_dataframe(df, os.path.join(data_dir, f"{nickname}.csv"), verbose)
 
     if verbose:
-        print(f"Dataset processing complete.")
-        print(f"Original dataset saved to {os.path.join(data_dir, f'{nickname}_original.csv')}")
-        print(f"Processed dataset saved to to {os.path.join(data_dir, f'{nickname}.csv')}")
+        logger.info(f"Dataset processing complete.")
+        logger.info(f"Original dataset saved to {os.path.join(data_dir, f'{nickname}_original.csv')}")
+        logger.info(f"Processed dataset saved to to {os.path.join(data_dir, f'{nickname}.csv')}")
 
     return df
