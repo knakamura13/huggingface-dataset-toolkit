@@ -1,9 +1,12 @@
 import unittest
+import numpy as np
 import pandas as pd
+from PIL import Image
 from unittest.mock import patch
 from prepare_data import encode_columns, download_huggingface_dataset, download_uci_dataset, \
     convert_float_columns_to_int, handle_missing_data, scale_data, auto_balance_dataset, \
-    download_clean_and_save_dataset, apply_stratified_sampling, save_dataframe, drop_columns, process_data
+    download_clean_and_save_dataset, apply_stratified_sampling, save_dataframe, drop_columns, process_data, \
+    resize_image, convert_images_to_tabular
 
 
 class TestPrepareData(unittest.TestCase):
@@ -52,6 +55,14 @@ class TestPrepareData(unittest.TestCase):
         self.assertIn('species_virginica', encoded_df.columns)
         self.assertNotIn('species', encoded_df.columns)
 
+    def test_encode_columns_non_existent_column(self):
+        df = pd.DataFrame({
+            'species': ['setosa', 'versicolor', 'setosa', 'virginica', 'versicolor'],
+            'sepal_length': [5.1, 6.0, 5.4, 5.6, 5.7]
+        })
+        with self.assertRaises(ValueError):
+            encode_columns(df, ['non_existent_column'], use_one_hot_encoding=True)
+
     def test_convert_float_columns_to_int(self):
         df = pd.DataFrame({
             'A': [1.0, 2.0, 3.0],
@@ -91,6 +102,16 @@ class TestPrepareData(unittest.TestCase):
         # Test impute strategy
         result = handle_missing_data(df_with_nans, strategy='impute')
         self.assertEqual(result.isnull().sum().sum(), 0)
+
+    def test_handle_missing_data_with_non_numeric(self):
+        df = pd.DataFrame({
+            'A': [1, 2, 3],
+            'B': [4, None, 6],
+            'C': ['a', None, 'b']
+        })
+        result = handle_missing_data(df, strategy='fill', fill_value='missing')
+        self.assertEqual(result.isnull().sum().sum(), 0)
+        self.assertEqual(result.iloc[1]['C'], 'missing')
 
     def test_scale_data(self):
         df = pd.DataFrame({
@@ -176,6 +197,15 @@ class TestPrepareData(unittest.TestCase):
         result = drop_columns(df, ['B'])
         self.assertNotIn('B', result.columns)
 
+    def test_drop_columns_non_existent(self):
+        df = pd.DataFrame({
+            'A': [1, 2, 3],
+            'B': [4, 5, 6],
+            'C': [7, 8, 9]
+        })
+        result = drop_columns(df, ['D'])
+        self.assertEqual(result.shape[1], 3)  # Ensure no columns are dropped
+
     def test_process_data(self):
         df = pd.DataFrame({
             'species': ['setosa', 'versicolor', 'setosa', 'virginica', 'versicolor'],
@@ -196,6 +226,79 @@ class TestPrepareData(unittest.TestCase):
             self.assertEqual(processed_df['sepal_width'].dtype, 'int64')
         else:
             self.assertEqual(processed_df['sepal_width'].dtype, 'float64')
+
+    def test_non_square_image(self):
+        # Create a non-square image (e.g., 3x4)
+        image_array = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        target_width = 2  # Target width
+
+        # Flatten the image
+        image_flattened = image_array.flatten()
+
+        # Call the resize_image function
+        resized_image = resize_image(image_flattened, target_width)
+
+        # Check the shape of the resized image
+        self.assertEqual(resized_image.shape, (target_width * target_width,))
+
+    def test_non_square_image_with_larger_target_width(self):
+        # Create a non-square image (e.g., 2x3)
+        image_array = np.array([1, 2, 3, 4, 5, 6])
+        target_width = 3  # Target width
+
+        # Flatten the image
+        image_flattened = image_array.flatten()
+
+        # Call the resize_image function
+        resized_image = resize_image(image_flattened, target_width)
+
+        # Check the shape of the resized image
+        self.assertEqual(resized_image.shape, (target_width * target_width,))
+
+    def test_resize_image_small_target(self):
+        # Create an image (e.g., 4x4)
+        image_array = np.array(range(16))
+        target_width = 1  # Very small target width
+
+        # Flatten the image
+        image_flattened = image_array.flatten()
+
+        # Call the resize_image function
+        resized_image = resize_image(image_flattened, target_width)
+
+        # Check the shape of the resized image
+        self.assertEqual(resized_image.shape, (target_width * target_width,))
+
+    def test_resize_image_large_target(self):
+        # Create an image (e.g., 2x2)
+        image_array = np.array([1, 2, 3, 4])
+        target_width = 3  # Target width larger than the original
+
+        # Flatten the image
+        image_flattened = image_array.flatten()
+
+        # Call the resize_image function
+        resized_image = resize_image(image_flattened, target_width)
+
+        # Check the shape of the resized image
+        self.assertEqual(resized_image.shape, (target_width * target_width,))
+
+    def test_convert_images_to_tabular(self):
+        # Mock dataset with image and non-image columns
+        dataset = [{'image': Image.fromarray(np.random.randint(0, 255, (4, 4), dtype=np.uint8)), 'label': 0},
+                   {'image': Image.fromarray(np.random.randint(0, 255, (4, 4), dtype=np.uint8)), 'label': 1}]
+
+        target_image_width = 2
+
+        df = convert_images_to_tabular(dataset, target_image_width=target_image_width, verbose=True)
+        self.assertEqual(df.shape[1], target_image_width * target_image_width + 1)  # Image pixels + label
+
+    def test_convert_images_to_tabular_empty_dataset(self):
+        dataset = []
+        target_image_width = 2
+
+        df = convert_images_to_tabular(dataset, target_image_width=target_image_width, verbose=True)
+        self.assertTrue(df.empty)
 
 
 if __name__ == '__main__':
