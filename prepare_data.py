@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import zipfile
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Helper functions
 
 
-def resize_image(flat_img, target_width, verbose=False):
+def resize_flattened_image(flat_img, target_width):
     """
     Resizes a flattened image to a specified target width while maintaining the aspect ratio.
 
@@ -32,7 +33,6 @@ def resize_image(flat_img, target_width, verbose=False):
     numpy.ndarray: The resized and flattened image array.
     """
     original_size = flat_img.size
-    current_size = int(np.sqrt(original_size))
 
     if target_width < 1:
         # Skipping resize if target width is smaller than 1
@@ -81,7 +81,7 @@ def resize_image(flat_img, target_width, verbose=False):
     return resized_image.flatten()
 
 
-def convert_images_to_tabular(dataset, target_image_width=None, verbose=False):
+def images_to_df(dataset, target_image_width=None, verbose=False):
     """
     Converts a dataset containing images into a tabular format.
 
@@ -103,7 +103,7 @@ def convert_images_to_tabular(dataset, target_image_width=None, verbose=False):
             if col == 'image':
                 image_array = np.array(value.convert('L')).flatten()  # Convert to grayscale and flatten
                 if target_image_width:
-                    image_array = resize_image(image_array, target_image_width, verbose)
+                    image_array = resize_flattened_image(image_array, target_image_width)
                 row.update({f'image_{i}': v for i, v in enumerate(image_array)})
             else:
                 row[col] = value
@@ -115,7 +115,7 @@ def convert_images_to_tabular(dataset, target_image_width=None, verbose=False):
     return df
 
 
-def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
+def encode_df_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
     """
     Encodes specified columns in a DataFrame using either One-Hot Encoding or Ordinal Encoding.
 
@@ -150,7 +150,7 @@ def encode_columns(df, column_names, use_one_hot_encoding=True, verbose=False):
     return df
 
 
-def convert_float_columns_to_int(df, verbose=False):
+def cast_floats_to_ints(df, verbose=False):
     """
     Converts float columns in a DataFrame to integers where possible.
 
@@ -174,7 +174,7 @@ def convert_float_columns_to_int(df, verbose=False):
     return df
 
 
-def handle_missing_data(df, strategy="drop", fill_value=None, verbose=False):
+def resolve_missing_data(df, strategy="drop", fill_value=None, verbose=False):
     """
     Handles missing data in a DataFrame using the specified strategy.
 
@@ -211,7 +211,7 @@ def handle_missing_data(df, strategy="drop", fill_value=None, verbose=False):
     return df
 
 
-def scale_data(df, columns=None, scale_type='standardize', verbose=False):
+def apply_data_scaling(df, columns=None, scale_type='standardize', verbose=False):
     """
     Scales numeric data in a DataFrame using the specified scaling method.
 
@@ -245,7 +245,7 @@ def scale_data(df, columns=None, scale_type='standardize', verbose=False):
     return df
 
 
-def auto_balance_dataset(df, target_column, verbose=False):
+def balance_class_distribution(df, target_column, verbose=False):
     """
     Balances the classes in a DataFrame using random oversampling.
 
@@ -292,7 +292,7 @@ def auto_balance_dataset(df, target_column, verbose=False):
     return balanced_df.sample(frac=1, random_state=1).reset_index(drop=True)
 
 
-def apply_stratified_sampling(df, stratify_column, stratify_sample_size, verbose=False):
+def sample_with_stratification(df, stratify_column, stratify_sample_size, verbose=False):
     """
     Applies stratified sampling to a DataFrame based on a specified column.
 
@@ -321,7 +321,7 @@ def apply_stratified_sampling(df, stratify_column, stratify_sample_size, verbose
     return sampled_df
 
 
-def drop_columns(df, cols_to_drop, verbose=False):
+def remove_df_columns(df, cols_to_drop, verbose=False):
     """
     Drops specified columns from a DataFrame.
 
@@ -345,7 +345,7 @@ def drop_columns(df, cols_to_drop, verbose=False):
     return df
 
 
-def get_dataset_nickname(dataset_name: str, nickname=None, verbose=False):
+def generate_dataset_alias(dataset_name: str, nickname=None, verbose=False):
     """
     Generates a standardized nickname for a dataset based on its name.
 
@@ -371,7 +371,7 @@ def get_dataset_nickname(dataset_name: str, nickname=None, verbose=False):
     return nickname
 
 
-def save_dataframe(df, file_path, verbose=False):
+def write_df_to_csv(df, file_path, verbose=False):
     """
     Saves a pandas DataFrame to a CSV file.
 
@@ -392,10 +392,10 @@ def save_dataframe(df, file_path, verbose=False):
         logger.info(f"DataFrame saved to {file_path}")
 
 
-def process_data(df, cols_to_encode=None, use_one_hot_encoding=True, missing_data_strategy="drop",
-                 missing_data_fill_value=None, scale_type=None, scale_columns=None,
-                 convert_floats_to_ints=True, as_int=False, auto_balance=False,
-                 stratify_column=None, verbose=False):
+def refine_and_prepare_data(df, cols_to_encode=None, use_one_hot_encoding=True, missing_data_strategy="drop",
+                            missing_data_fill_value=None, scale_type=None, scale_columns=None,
+                            convert_floats_to_ints=True, as_int=False, auto_balance=False,
+                            stratify_column=None, verbose=False):
     """
     Processes a DataFrame by encoding specified columns, handling missing data, scaling data,
     converting float columns to integers, and optionally balancing the dataset.
@@ -423,16 +423,16 @@ def process_data(df, cols_to_encode=None, use_one_hot_encoding=True, missing_dat
     if cols_to_encode:
         if not set(cols_to_encode).issubset(df.columns):
             raise ValueError("One or more columns specified for encoding do not exist in the DataFrame.")
-        df = encode_columns(df, cols_to_encode, use_one_hot_encoding, verbose)
-    df = handle_missing_data(df, strategy=missing_data_strategy, fill_value=missing_data_fill_value, verbose=verbose)
+        df = encode_df_columns(df, cols_to_encode, use_one_hot_encoding, verbose)
+    df = resolve_missing_data(df, strategy=missing_data_strategy, fill_value=missing_data_fill_value, verbose=verbose)
     if scale_type:
-        df = scale_data(df, columns=scale_columns, scale_type=scale_type, verbose=verbose)
+        df = apply_data_scaling(df, columns=scale_columns, scale_type=scale_type, verbose=verbose)
     if convert_floats_to_ints:
-        df = convert_float_columns_to_int(df, verbose=verbose)
+        df = cast_floats_to_ints(df, verbose=verbose)
     if as_int:
         df = df.astype(int)
     if auto_balance and stratify_column:
-        df = auto_balance_dataset(df, stratify_column, verbose)
+        df = balance_class_distribution(df, stratify_column, verbose)
     return df
 
 
@@ -460,7 +460,7 @@ def download_huggingface_dataset(name, variant=None, split=Split.ALL, verbose=Fa
 
     # Convert images to tabular format if the dataset contains images
     if 'image' in dataset.column_names:
-        df = convert_images_to_tabular(dataset, target_image_width=target_image_width, verbose=verbose)
+        df = images_to_df(dataset, target_image_width=target_image_width, verbose=verbose)
     else:
         df = dataset.to_pandas()
 
@@ -502,23 +502,79 @@ def download_uci_dataset(dataset_id, verbose=False):
         # Standardize column names to lowercase and replace spaces with underscores
         df.columns = df.columns.str.lower().str.replace(' ', '_')
         return df
-
     except DatasetNotFoundError as e:
         logger.error(f"Dataset with ID {dataset_id} is not available for import. "
                      f"Note that the ucimlrepo library does not support image-based datasets.")
         sys.tracebacklimit = 0
         raise e
+    except ConnectionError:
+        logger.error(f"The UCI dataset repository is currently offline. Try again in a few minutes.")
 
 
-def download_dataset(name, source, split, variant, verbose=False, target_image_width=None):
+def load_local_dataset(file_path, verbose=False):
+    """
+    Loads a dataset from the local file system.
+
+    Parameters:
+    file_path (str or Path): The path to the dataset file.
+    verbose (bool, optional): If True, logs additional information during the load process.
+
+    Returns:
+    pandas.DataFrame: The loaded dataset as a pandas DataFrame.
+
+    Raises:
+    FileNotFoundError: If the file specified does not exist.
+    ValueError: If the file format is not supported or if the zip file is empty.
+    """
+    if verbose:
+        logger.info(f"Loading local dataset from {file_path}...")
+    path = Path(file_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"No file found at {path}")
+
+    try:
+        if path.suffix in ['.csv']:
+            df = pd.read_csv(path)
+        elif path.suffix in ['.xlsx', '.xls']:
+            df = pd.read_excel(path)
+        elif path.suffix in ['.parquet']:
+            df = pd.read_parquet(path)
+        elif path.suffix in ['.zip']:
+            with zipfile.ZipFile(path, 'r') as z:
+                namelist = z.namelist()
+                if not namelist:
+                    raise ValueError("The zip file is empty.")
+                # Assume the first file in the zip is the dataset
+                with z.open(namelist[0]) as f:
+                    df = pd.read_csv(f)
+        else:
+            raise ValueError(f"Unsupported file format: {path.suffix}")
+    except pd.errors.ParserError as e:
+        logger.error(f"Error parsing file: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        raise
+
+    if verbose:
+        logger.info("Local dataset loaded successfully.")
+
+    return df
+
+
+def fetch_dataset_from_source(name, source, split=None, variant=None, verbose=False, target_image_width=None):
     """
     Downloads a dataset from a specified source.
 
+    This function handles downloading datasets from various sources such as Huggingface, UCI, or local files.
+    It delegates the actual download process to specific functions based on the source.
+
     Parameters:
     name (str): The name or identifier of the dataset to download.
-    source (str): The source from which to download the dataset. Supported sources are 'huggingface' and 'uci'.
-    split (str): The dataset split to download (e.g., 'train', 'test', 'validation'). Used for Huggingface datasets.
-    variant (str): The variant of the dataset to download. Used for Huggingface datasets.
+    source (str): The source from which to download the dataset. Supported sources are 'huggingface', 'uci', and 'local'.
+    split (str, optional): The dataset split to download (e.g., 'train', 'test', 'validation'). Used for Huggingface datasets. Default is None.
+    variant (str, optional): The variant of the dataset to download. Used for Huggingface datasets. Default is None.
     verbose (bool, optional): If True, logs additional information during the download process. Default is False.
     target_image_width (int, optional): The target width to resize images to. If None, images are not resized. Default is None.
 
@@ -529,22 +585,25 @@ def download_dataset(name, source, split, variant, verbose=False, target_image_w
     ValueError: If an unsupported source is specified.
     """
     if verbose:
-        logger.info(f"Downloading dataset {name} from source {source}...")
+        logger.info(f"Downloading dataset '{name}' from source '{source}'...")
     if source.lower() == 'huggingface':
         return download_huggingface_dataset(name, variant, split, verbose, target_image_width)
     elif source.lower() == 'uci':
         return download_uci_dataset(int(name), verbose)
-    raise ValueError(f"Unsupported source specified: {source}")
+    elif source.lower() == 'local':
+        return load_local_dataset(name, verbose)
+    else:
+        raise ValueError(f"Unsupported source specified: {source}")
 
 
 # Main function
 
-def download_clean_and_save_dataset(name, source='huggingface', variant=None, split=Split.ALL,
-                                    data_dir="data", nickname=None, cols_to_drop=None, cols_to_encode=None,
-                                    use_one_hot_encoding=True, missing_data_strategy="drop",
-                                    missing_data_fill_value=None, scale_type=None, scale_columns=None,
-                                    stratify_column=None, stratify_sample_size=0.1, convert_floats_to_ints=True,
-                                    as_int=False, auto_balance=False, target_image_width=None, verbose=False):
+def process_and_store_dataset(name, source='huggingface', variant=None, split=Split.ALL,
+                              data_dir="data", nickname=None, cols_to_drop=None, cols_to_encode=None,
+                              use_one_hot_encoding=True, missing_data_strategy="drop",
+                              missing_data_fill_value=None, scale_type=None, scale_columns=None,
+                              stratify_column=None, stratify_sample_size=0.1, convert_floats_to_ints=True,
+                              as_int=False, auto_balance=False, target_image_width=None, verbose=False):
     """
     Downloads, processes, and saves a dataset.
 
@@ -579,20 +638,20 @@ def download_clean_and_save_dataset(name, source='huggingface', variant=None, sp
     Raises:
     ValueError: If one or more columns specified for encoding do not exist in the DataFrame.
     """
-    nickname = get_dataset_nickname(dataset_name=name, nickname=nickname, verbose=verbose)
+    nickname = generate_dataset_alias(dataset_name=name, nickname=nickname, verbose=verbose)
 
-    df = download_dataset(name, source, split, variant, verbose, target_image_width)
+    df = fetch_dataset_from_source(name, source, split, variant, verbose, target_image_width)
     if df is None:
-        logger.error(f"Failed to download dataset {name} from source {source}.")
+        logger.error(f"Failed to download dataset '{name}' from source '{source}'.")
         return None
 
-    save_dataframe(df, os.path.join(data_dir, f"{nickname}_original.csv"), verbose)
+    write_df_to_csv(df, os.path.join(data_dir, f"{nickname}_original.csv"), verbose)
 
-    df = drop_columns(df, cols_to_drop, verbose=verbose)
-    df = apply_stratified_sampling(df, stratify_column, stratify_sample_size, verbose=verbose)
-    df = process_data(df, cols_to_encode, use_one_hot_encoding, missing_data_strategy, missing_data_fill_value,
-                      scale_type, scale_columns, convert_floats_to_ints, as_int, auto_balance, stratify_column, verbose)
-    save_dataframe(df, os.path.join(data_dir, f"{nickname}.csv"), verbose)
+    df = remove_df_columns(df, cols_to_drop, verbose=verbose)
+    df = sample_with_stratification(df, stratify_column, stratify_sample_size, verbose=verbose)
+    df = refine_and_prepare_data(df, cols_to_encode, use_one_hot_encoding, missing_data_strategy, missing_data_fill_value,
+                                 scale_type, scale_columns, convert_floats_to_ints, as_int, auto_balance, stratify_column, verbose)
+    write_df_to_csv(df, os.path.join(data_dir, f"{nickname}.csv"), verbose)
 
     if verbose:
         logger.info(f"Dataset processing complete.")

@@ -3,6 +3,7 @@ numpy
 pandas
 pillow
 pytest
+requests
 scikit-image
 scikit-learn
 scipy
