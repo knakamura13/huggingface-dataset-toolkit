@@ -14,7 +14,7 @@ def is_uci_available():
         return False
 
 
-def download_with_retry(download_func, *args, retries=0, delay=0):
+def download_with_retry(download_func, *args, retries=1, delay=0):
     for attempt in range(retries):
         try:
             return download_func(*args)
