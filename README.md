@@ -28,3 +28,44 @@ Install the necessary dependencies using:
 
 ```bash
 pip install -r requirements.txt
+```
+
+## Usage
+
+Here's how you can import and use the tool to download and pre-process a dataset:
+
+```python
+from prepare_data import process_and_store_dataset
+
+# Download and preprocess dataset from Huggingface
+dataset = process_and_store_dataset(name="hitorilabs/iris")
+
+# Download and preprocess dataset from UCI
+uci_dataset = process_and_store_dataset(
+    name="53",  # ID for the Iris dataset
+    source='uci'
+)
+
+# Load and preprocess local dataset
+local_dataset = process_and_store_dataset(
+    name='data/local_dataset.csv',
+    source='local',
+    verbose=True
+)
+
+# Download, resize images, and preprocess dataset from Huggingface
+image_dataset = process_and_store_dataset(
+    name='fashion_mnist',
+    source='huggingface',
+    target_image_width=28,  # Resize to 28x28
+    verbose=True
+)
+```
+
+## Contributions
+
+Feel free to contribute to this project by submitting pull requests or suggesting new enhancements through the issues tab.
+
+## License
+
+This project is open-source and available under the MIT License.
